@@ -13,7 +13,7 @@ wandb/
 checkpoints/
 videos/
 *.zip
-exp/
+#exp/
 
 # Modal logs/artifacts
 modal_volume/
