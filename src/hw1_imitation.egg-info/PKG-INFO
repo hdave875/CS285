@@ -1,3 +1,23 @@
+Metadata-Version: 2.4
+Name: hw1-imitation
+Version: 0.1.0
+Summary: Add your description here
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: datasets>=4.4.1
+Requires-Dist: gym-pusht>=0.1.6
+Requires-Dist: imageio>=2.37.2
+Requires-Dist: imageio-ffmpeg>=0.6.0
+Requires-Dist: matplotlib>=3.10.8
+Requires-Dist: modal>=1.2.6
+Requires-Dist: pymunk<7
+Requires-Dist: ruff>=0.14.10
+Requires-Dist: setuptools>=80.9.0
+Requires-Dist: torch>=2.9.1
+Requires-Dist: tyro>=1.0.3
+Requires-Dist: wandb>=0.23.1
+Requires-Dist: zarr>=3.1.5
+
 # Homework 1: Imitation Learning
 
 ## Setup
