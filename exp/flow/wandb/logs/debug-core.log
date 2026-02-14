@@ -1,8 +1,0 @@
-{"time":"2026-02-11T17:46:53.502821-08:00","level":"INFO","msg":"main: starting server","port-filename":"/var/folders/29/gsdt9fq90r3_8vtrkzqb6rk80000gn/T/tmpcqw0smfi/port-64900.txt","pid":64900,"log-level":0,"disable-analytics":false,"shutdown-on-parent-exit":false,"enable-dcgm-profiling":false}
-{"time":"2026-02-11T17:46:53.50324-08:00","level":"INFO","msg":"server: will exit if parent process dies","ppid":64900}
-{"time":"2026-02-11T17:46:53.503231-08:00","level":"INFO","msg":"server: accepting connections","addr":{"Name":"/var/folders/29/gsdt9fq90r3_8vtrkzqb6rk80000gn/T/wandb-64900-64905-36268736/socket","Net":"unix"}}
-{"time":"2026-02-11T17:46:53.698393-08:00","level":"INFO","msg":"connection: ManageConnectionData: new connection created","id":"1"}
-{"time":"2026-02-11T17:46:53.719244-08:00","level":"INFO","msg":"handleInformInit: received","streamId":"21qzt22e","id":"1"}
-{"time":"2026-02-11T17:46:53.898211-08:00","level":"INFO","msg":"handleInformInit: stream started","streamId":"21qzt22e","id":"1"}
-{"time":"2026-02-11T17:51:34.901536-08:00","level":"INFO","msg":"handleInformFinish: finish message received","streamId":"21qzt22e","id":"1"}
-{"time":"2026-02-11T17:51:34.907957-08:00","level":"INFO","msg":"handleInformFinish: stream closed","streamId":"21qzt22e","id":"1"}
