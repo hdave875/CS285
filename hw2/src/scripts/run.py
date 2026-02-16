@@ -61,15 +61,23 @@ def run_training_loop(logger, args):
         print(f"\n********** Iteration {itr} ************")
         # TODO: sample `args.batch_size` transitions using utils.sample_trajectories
         # make sure to use `max_ep_len`
-        trajs, envsteps_this_batch = None, None
+        trajs, envsteps_this_batch = utils.sample_trajectories(
+            env, agent.actor, args.batch_size, max_ep_len
+        )
         total_envsteps += envsteps_this_batch
 
         # trajs should be a list of dictionaries of NumPy arrays, where each dictionary corresponds to a trajectory.
         # this line converts this into a single dictionary of lists of NumPy arrays.
         trajs_dict = {k: [traj[k] for traj in trajs] for k in trajs[0]}
-
+        print(f"Collected {envsteps_this_batch} steps ({len(trajs)} trajectories)") 
+        print(f"Available keys are: {trajs_dict.keys()}") 
         # TODO: train the agent using the sampled trajectories and the agent's update function
-        train_info: dict = None
+        train_info: dict = agent.update(
+            obs=trajs_dict["observation"],
+            actions=trajs_dict["action"],
+            rewards=trajs_dict["reward"],
+            terminals=trajs_dict["terminal"],
+        )
 
         if itr % args.scalar_log_freq == 0:
             # save eval metrics
@@ -154,7 +162,7 @@ def main(args):
     logdir_prefix = "exp"  # Keep for autograder
 
     exp_name = f"{args.env_name}_{args.exp_name}_sd{args.seed}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-
+    full_logdir = os.path.join(logdir_prefix, exp_name)
     config = vars(args)
     setup_wandb(project='cs285_hw2', name=exp_name, config=config)
     args.save_dir = os.path.join(logdir_prefix, exp_name)

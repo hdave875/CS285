@@ -104,9 +104,15 @@ def setup_wandb(
     name=None,
     mode='online',
     config=None,
+    logdir=None,
 ):
     """Set up Weights & Biases for logging."""
-    wandb_output_dir = tempfile.mkdtemp()
+    if logdir:
+        wandb_output_dir = os.path.abspath(logdir)
+        os.makedirs(wandb_output_dir, exist_ok=True)
+    else:
+        wandb_output_dir = tempfile.mkdtemp()
+    # wandb_output_dir = tempfile.mkdtemp()
     tags = [group] if group is not None else None
 
     init_kwargs = dict(

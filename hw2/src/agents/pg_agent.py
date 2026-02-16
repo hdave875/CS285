@@ -67,6 +67,11 @@ class PGAgent(nn.Module):
         # TODO: flatten the lists of arrays into single arrays, so that the rest of the code can be written in a vectorized
         # way. obs, actions, rewards, terminals, and q_values should all be arrays with a leading dimension of `batch_size`
         # beyond this point.
+        obs = np.concatenate(obs)
+        actions = np.concatenate(actions)
+        rewards = np.concatenate(rewards)
+        terminals = np.concatenate(terminals)
+        q_values = np.concatenate(q_values)
 
         # step 2: calculate advantages from Q values
         advantages: np.ndarray = self._estimate_advantage(
@@ -75,7 +80,7 @@ class PGAgent(nn.Module):
 
         # step 3: use all datapoints (s_t, a_t, adv_t) to update the PG actor/policy
         # TODO: update the PG actor/policy network once using the advantages
-        info: dict = None
+        info: dict = self.actor.update(obs, actions, advantages)
 
         # step 4: if needed, use all datapoints (s_t, a_t, q_t) to update the PG critic/baseline
         if self.critic is not None:
@@ -94,14 +99,29 @@ class PGAgent(nn.Module):
         Note that all entries of the output list should be the exact same because each sum is from 0 to T (and doesn't
         involve t)!
         """
-        return None
+        rewards_per_trajectory = np.array(rewards)
+        gamma_vector = np.power(self.gamma, np.arange(len(rewards_per_trajectory))) 
+        #print(f"shape of rewards per trajectory: ", rewards_per_trajectory.shape)
+        #print(f"shape of gamma vector: ", gamma_vector.shape)
+        weighted_sum_rewards = np.dot(gamma_vector, rewards_per_trajectory)
+        return np.full_like(rewards_per_trajectory, weighted_sum_rewards)
 
     def _discounted_reward_to_go(self, rewards: Sequence[float]) -> Sequence[float]:
         """
         Helper function which takes a list of rewards {r_0, r_1, ..., r_t', ... r_T} and returns a list where the entry
         in each index t' is sum_{t'=t}^T gamma^(t'-t) * r_{t'}.
         """
-        return None
+        rewards_per_trajectory = np.array(rewards)
+        gamma_vector = np.power(self.gamma, np.arange(len(rewards_per_trajectory)))
+        discounted_rewards_to_go = np.zeros_like(rewards_per_trajectory)
+        #t_prime = 5
+        #print(f"gamma_vector at t' = 5: {gamma_vector[:len(rewards_per_trajectory) - t_prime]}")
+        #print(f"reward_vecotor at t' = 5: {rewards_per_trajectory[t_prime:]}")
+        for t in range(len(rewards_per_trajectory)):
+            gamma_vector = gamma_vector[:len(rewards_per_trajectory) - t]
+            rewards_to_go = rewards_per_trajectory[t:]
+            discounted_rewards_to_go[t] = np.dot(gamma_vector, rewards_to_go)
+        return discounted_rewards_to_go
 
     def _calculate_q_vals(self, rewards: Sequence[np.ndarray]) -> Sequence[np.ndarray]:
         """Monte Carlo estimation of the Q function."""
@@ -111,12 +131,20 @@ class PGAgent(nn.Module):
             # trajectory at each point.
             # In other words: Q(s_t, a_t) = sum_{t'=0}^T gamma^t' r_{t'}
             # TODO: use the helper function self._discounted_return to calculate the Q-values
-            q_values = None
+            #print("Rewards Length: ", len(rewards))
+            q_values = []
+            for traj in range(len(rewards)):
+                weighted_rewards = self._discounted_return(rewards[traj])
+                #print("Weighted reward per trajectory: ", weighted_rewards)
+                q_values.append(weighted_rewards)
         else:
             # Case 2: in reward-to-go PG, we only use the rewards after timestep t to estimate the Q-value for (s_t, a_t).
             # In other words: Q(s_t, a_t) = sum_{t'=t}^T gamma^(t'-t) * r_{t'}
             # TODO: use the helper function self._discounted_reward_to_go to calculate the Q-values
-            q_values = None
+            q_values = []
+            for traj in range(len(rewards)):
+                weighted_rewards = self._discounted_reward_to_go(rewards[traj])
+                q_values.append(weighted_rewards)
 
         return q_values
 
@@ -133,7 +161,7 @@ class PGAgent(nn.Module):
         """
         if self.critic is None:
             # TODO: if no baseline, then what are the advantages?
-            advantages = None
+            advantages = q_values
         else:
             # TODO: run the critic and use it as a baseline
             values = None
