@@ -12,7 +12,7 @@ from agents.pg_agent import PGAgent
 from infrastructure import utils
 from infrastructure import pytorch_util as ptu
 from infrastructure.log_utils import setup_wandb, Logger, dump_log
-
+import matplotlib.pyplot as plt
 MAX_NVIDEO = 2
 
 
@@ -69,8 +69,8 @@ def run_training_loop(logger, args):
         # trajs should be a list of dictionaries of NumPy arrays, where each dictionary corresponds to a trajectory.
         # this line converts this into a single dictionary of lists of NumPy arrays.
         trajs_dict = {k: [traj[k] for traj in trajs] for k in trajs[0]}
-        print(f"Collected {envsteps_this_batch} steps ({len(trajs)} trajectories)") 
-        print(f"Available keys are: {trajs_dict.keys()}") 
+        #print(f"Collected {envsteps_this_batch} steps ({len(trajs)} trajectories)") 
+        #print(f"Available keys are: {trajs_dict.keys()}") 
         # TODO: train the agent using the sampled trajectories and the agent's update function
         train_info: dict = agent.update(
             obs=trajs_dict["observation"],
@@ -101,6 +101,15 @@ def run_training_loop(logger, args):
                 print("{} : {}".format(key, value))
             logger.log(logs, itr)
             print("Done logging...\n\n", flush=True)
+
+            #plot learning curves:
+            x = [log['Train_EnvstepsSoFar'] for log in logger.rows]
+            y = [log['Eval_AverageReturn'] for log in logger.rows]
+            plt.plot(x, y)
+            plt.xlabel('Environment Steps')
+            plt.ylabel('Average Return')
+            plt.title('Learning Curve')
+            plt.savefig(os.path.join(args.save_dir, 'learning_curve.png'))
 
         if args.video_log_freq != -1 and itr % args.video_log_freq == 0:
             print("\nCollecting video rollouts...")
