@@ -195,23 +195,44 @@ def compute_group_advantages(rewards: torch.Tensor, group_size: int, eps: float 
     # Use the population standard deviation within each group (PyTorch:
     # std(..., unbiased=False)), not the sample-standard-deviation correction.
     #
-    # Edge cases to handle:
-    # - group_size <= 1
     # - rewards.numel() not divisible by group_size
     # - near-zero within-group std: do not emit NaNs/Infs; use a stable fallback
     #   of your choice for that group
     #
+    if group_size <= 1:
+        return rewards.clone()
+    N = rewards.numel()
+    num_groups = (N + group_size - 1) // group_size
+    rewards = rewards[: num_groups * group_size]
+    rewards = rewards.view(num_groups, group_size)
+    mean = rewards.mean(dim=1, keepdim=True)
+    std = rewards.std(dim=1, keepdim=True, unbiased=False)
+    if torch.any(std < eps):
+        print("Warning: some groups have near-zero std when computing advantages; using stable fallback for those groups.")
+        std = torch.where(std < eps, torch.ones_like(std), std)
+    advantages = (rewards - mean) / (std + eps)
+    advantages = advantages.view(-1)
     # Return a flat tensor with the same shape/order as rewards.
-    raise NotImplementedError("student TODO: compute_group_advantages")
+    return advantages
+    #raise NotImplementedError("student TODO: compute_group_advantages")
 
 
 def maybe_normalize_advantages(advantages: torch.Tensor, enabled: bool, eps: float = 1e-6) -> torch.Tensor:
     # TODO(student): if enabled, z-score normalize the full advantage vector:
     #   A' = (A - mean(A)) / (std(A) + eps)
+    advantages_prime = advantages.clone()
+    if enabled:
+        mean = advantages.mean()
+        std = advantages.std(unbiased=False)
+        if std < eps:
+            print("Warning: near-zero std when normalizing advantages; using stable fallback.")
+            std = torch.tensor(1.0, device=advantages.device)
+        advantages_prime = (advantages - mean) / (std + eps)
+    return advantages_prime
     # Again use the population standard deviation (unbiased=False).
     # Otherwise return A unchanged.
     # Keep the output shape identical to the input shape.
-    raise NotImplementedError("student TODO: maybe_normalize_advantages")
+    #raise NotImplementedError("student TODO: maybe_normalize_advantages")
 
 
 def maybe_update_warmup_lr(optimizer: torch.optim.Optimizer, base_lr: float, step: int, warmup_steps: int) -> None:

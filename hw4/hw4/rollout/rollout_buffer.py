@@ -44,9 +44,40 @@ def iter_minibatches(
     # TODO(student): yield RolloutBatch minibatches of size minibatch_size.
     # Requirements:
     # - Let N = batch.input_ids.shape[0] be the number of sampled completions.
+    N = batch.input_ids.shape[0]
     # - If shuffle=True, permute indices with torch.randperm using the provided generator.
     # - Otherwise iterate in the original order 0, 1, ..., N-1.
+    if shuffle:
+        assert generator is not None, "generator must be provided when shuffle=True"
+        indices = torch.randperm(N, generator=generator)
+    else:
+        indices = torch.arange(N)
     # - Slice ALL tensor fields consistently with the same minibatch indices.
     # - Keep task_names / completion_texts aligned with the same indices when present.
     # - If device is not None, move the minibatch to that device before yielding.
-    raise NotImplementedError("student TODO: iter_minibatches")
+    for start in range(0, N, minibatch_size):
+        end = start + minibatch_size
+        mb_indices = indices[start:end]
+        yield RolloutBatch(
+            input_ids=batch.input_ids[mb_indices],
+            attention_mask=batch.attention_mask[mb_indices],
+            completion_mask=batch.completion_mask[mb_indices],
+            old_logprobs=batch.old_logprobs[mb_indices],
+            ref_logprobs=batch.ref_logprobs[mb_indices],
+            rewards=batch.rewards[mb_indices],
+            advantages=batch.advantages[mb_indices],
+            task_names=[batch.task_names[i] for i in mb_indices] if batch.task_names is not None else None,
+            completion_texts=[batch.completion_texts[i] for i in mb_indices] if batch.completion_texts is not None else None,
+        ).to(device) if device is not None else RolloutBatch(
+            input_ids=batch.input_ids[mb_indices],
+            attention_mask=batch.attention_mask[mb_indices],
+            completion_mask=batch.completion_mask[mb_indices],
+            old_logprobs=batch.old_logprobs[mb_indices],
+            ref_logprobs=batch.ref_logprobs[mb_indices],
+            rewards=batch.rewards[mb_indices],
+            advantages=batch.advantages[mb_indices],
+            task_names=[batch.task_names[i] for i in mb_indices] if batch.task_names is not None else None,
+            completion_texts=[batch.completion_texts[i] for i in mb_indices] if batch.completion_texts is not None else None,
+        )
+
+    #raise NotImplementedError("student TODO: iter_minibatches")

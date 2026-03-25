@@ -20,10 +20,17 @@ def compute_per_token_logprobs(
     # - L = tokenized sequence length including prompt, completion, and any padding
     # - V = vocabulary size
     #
+    B, L = input_ids.shape
+
     # Hugging Face model call signature to use here:
     #   out = model(input_ids=input_ids, attention_mask=attention_mask, use_cache=False)
     # and then out.logits has shape [B, L, V].
     #
+    out = model(input_ids=input_ids, attention_mask=attention_mask, use_cache=False)
+    logits = out.logits
+    B_out, L_out, V = logits.shape
+    assert B_out == B and L_out == L, f"Expected output logits shape [B, L, V], got {logits.shape}"
+
     # For token position t>=1, use logits at position t-1 to score target token x_t:
     #   log p(x_t | x_<t) = log_softmax(logits[:, t-1, :])[x_t].
     #
@@ -31,6 +38,15 @@ def compute_per_token_logprobs(
     # materialize ANOTHER dense [B, L-1, V] log_softmax tensor, and then gather the
     # entries for the target tokens input_ids[:, 1:].
     #
+
+    logits_targets = logits[:, :-1, :]
+    #targets = torch.zeros(B,L-1,V, device=logits.device)
+    #targets.scatter_(2, input_ids[:, 1:].unsqueeze(2), 1)
+
+   
+    # logprobs = F.log_softmax(logits_targets, dim=-1)
+    # logprobs = (logprobs * targets).sum(dim=-1)
+
     # A more memory-efficient path is to reuse the existing logits tensor and call
     # F.cross_entropy(..., reduction='none'), because cross-entropy is exactly the
     # fused "log_softmax + gather target token + negative sign" operation.
@@ -43,7 +59,15 @@ def compute_per_token_logprobs(
     #
     # Respect enable_grad: when enable_grad=False this function should not build an
     # autograd graph.
-    raise NotImplementedError("student TODO: compute_per_token_logprobs")
+
+    enable_grad = bool(enable_grad)
+    if not enable_grad:
+        with torch.no_grad():
+            logprobs = F.cross_entropy(logits_targets.reshape(-1, V), input_ids[:, 1:].reshape(-1), reduction='none').view(B, L-1)
+    else:
+        logprobs = F.cross_entropy(logits_targets.reshape(-1, V), input_ids[:, 1:].reshape(-1), reduction='none').view(B, L-1)
+    logprobs = -logprobs.view(B, L-1)
+    return logprobs
 
 
 def build_completion_mask(
@@ -56,17 +80,27 @@ def build_completion_mask(
     # TODO(student): return a float mask of shape [B, L-1] on the same device as
     # input_ids. Here input_ids and attention_mask both have shape [B, L].
     #
+    B,L = input_ids.shape
+    B_mask, L_mask = attention_mask.shape
+    assert B == B_mask and L == L_mask, f"Expected input_ids and attention_mask to have the same shape [B, L], got {input_ids.shape} and {attention_mask.shape}"
     # The per-token logprob tensor is indexed by t in [0, L-2], where entry t scores
     # token input_ids[:, t+1]. Therefore:
     #   mask[:, t] should be 1 iff token (t+1) belongs to the generated completion
     #   and is not padding; otherwise 0.
+
+    mask = torch.zeros(B, L-1, device=input_ids.device, dtype=torch.float)
+    for i in range(B):
+        for t in range(L-1):
+            if t+1 >= prompt_input_len and attention_mask[i, t+1] == 1:
+                mask[i, t] = 1.0
+    return mask
     # Equivalently, the FIRST completion token lives at token index prompt_input_len
     # in input_ids, which corresponds to per-token logprob index prompt_input_len - 1.
     #
     # prompt_input_len is the (padded) prompt length before completion tokens were
     # appended. You can use attention_mask to exclude padding; pad_token_id is passed
     # for convenience but a direct attention-mask-based solution is fine.
-    raise NotImplementedError("student TODO: build_completion_mask")
+
 
 
 def masked_sum(x: torch.Tensor, mask: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
@@ -101,6 +135,12 @@ def approx_kl_from_logprobs(
     # 2. per_token = exp(delta) - delta - 1
     # 3. return the masked average over completion tokens
     #
+
+    delta = torch.clamp(ref_logprobs - new_logprobs, -log_ratio_clip, log_ratio_clip)
+    per_token = torch.exp(delta) - delta - 1.0
+    kl_proxy = masked_mean(per_token, mask, eps)
+    return kl_proxy
+
     # Why this estimates KL(p_new || p_ref):
     # With delta = log(p_ref(a) / p_new(a)) and a ~ p_new,
     #   E[exp(delta)] = E[p_ref(a) / p_new(a)] = 1.
@@ -110,4 +150,4 @@ def approx_kl_from_logprobs(
     #                             = KL(p_new || p_ref).
     #
     # The clamp to [-20, 20] is for numerical stability / variance control.
-    raise NotImplementedError("student TODO: approx_kl_from_logprobs")
+  
